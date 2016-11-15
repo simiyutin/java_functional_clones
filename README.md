@@ -7,4 +7,4 @@ IntelliJ IDEA has been chosen as development environment and provider of base re
 
 STEPS:
 
-1. At first, we are using built
+1. At first, we are using builtin IDEA for-loops to stream API refactorings to easily fild places which can be replaced by predicates, e.g. .filter(/*here comes piece of code which surely can be replaced by Predicate variable*/)
