@@ -2,13 +2,26 @@ import com.intellij.psi.PsiElement;
 import com.intellij.psi.PsiElementVisitor;
 import com.sun.xml.internal.bind.annotation.OverrideAnnotationOf;
 
+import java.util.ArrayList;
+
 /**
  * Created by boris on 15.11.16.
  */
 public class PsiVisitor extends PsiElementVisitor {
+
+    private ArrayList<PsiElement> allElements;
+
+    public PsiVisitor() {
+        this.allElements = new ArrayList<>();
+    }
+
     @Override
     public void visitElement(PsiElement element) {
-        System.out.println(element.toString());
+        allElements.add(element);
         element.acceptChildren(this);
+    }
+
+    public ArrayList<PsiElement> getAllElements() {
+        return allElements;
     }
 }
