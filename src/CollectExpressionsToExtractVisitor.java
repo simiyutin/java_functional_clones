@@ -21,8 +21,6 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
     @Override
     public void visitElement(PsiElement element) {
         if(element instanceof PsiLambdaExpression) {
-            PsiLambdaExpression test = ((PsiLambdaExpression) element);
-            PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(test);
             expressions.add(((PsiLambdaExpression) element));
         }
         element.acceptChildren(this);

@@ -16,7 +16,7 @@ import org.jetbrains.annotations.NonNls;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ForWithIfToForEachWithFilter extends AnAction {
+public class FunctionalClonesReplacement extends AnAction {
 
     public void actionPerformed(AnActionEvent event) {
 
