@@ -7,11 +7,11 @@ import java.util.ArrayList;
 /**
  * Created by boris on 15.11.16.
  */
-public class PsiVisitor extends PsiElementVisitor {
+public class CollectAllElementsVisitor extends PsiElementVisitor {
 
     private ArrayList<PsiElement> allElements;
 
-    public PsiVisitor() {
+    public CollectAllElementsVisitor() {
         this.allElements = new ArrayList<>();
     }
 

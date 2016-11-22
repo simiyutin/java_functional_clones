@@ -2,28 +2,42 @@ package com.company;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class Main {
 
-    public static void main(String[] args) {
-	// write your code here
+    public static void main(String[] args, Predicate<Invoice> invoicePredicate) {
+	ArrayList<Invoice> allInvoices= new ArrayList<>();
+
+        allInvoices.add(new Invoice());
+
+        List<Invoice> test2 = findInvoicesFromMicrosoft(allInvoices, invoice -> invoice.getCustomer() == Customer.MICROSOFT);
+        List<Invoice> test3 = findInvoicesFromOracle(allInvoices, invoice -> invoice.getCustomer() == Customer.ORACLE);
     }
 
-    public List<Invoice> findInvoicesFromOracle(List<Invoice> invoices) {
-        List<Invoice> result = invoices.stream().filter(invoice -> invoice.getCustomer() == Customer.ORACLE).collect(Collectors.toList());
+    public static List<Invoice> findInvoicesFromOracle(List<Invoice> invoices, Predicate<Invoice> azaza) {
+        List<Invoice> result = invoices.stream().filter(azaza).collect(Collectors.toList());
         return result;
     }
 
-    public List<Invoice> findInvoicesFromMicrosoft(List<Invoice> invoices) {
-        List<Invoice> result = invoices.stream().filter(invoice -> invoice.getCustomer() == Customer.MICROSOFT).collect(Collectors.toList());
+    public static  List<Invoice> findInvoicesFromMicrosoft(List<Invoice> invoices, Predicate<Invoice> azaza) {
+        List<Invoice> result = invoices.stream().filter(azaza).collect(Collectors.toList());
         return result;
     }
-
 }
 
     /*
-    *     public List<Invoice> findInvoicesFromOracle(List<Invoice> invoices) {
+    public static void main(String[] args, Predicate<Invoice> invoicePredicate) {
+	ArrayList<Invoice> allInvoices= new ArrayList<>();
+
+        allInvoices.add(new Invoice());
+
+        List<Invoice> test2 = findInvoicesFromMicrosoft(allInvoices);
+        List<Invoice> test3 = findInvoicesFromOracle(allInvoices);
+    }
+
+    public static List<Invoice> findInvoicesFromOracle(List<Invoice> invoices) {
         List<Invoice> result = new ArrayList<>();
         for(Invoice invoice: invoices) {
             if(invoice.getCustomer() == Customer.ORACLE) {
@@ -33,7 +47,7 @@ public class Main {
         return result;
     }
 
-    public List<Invoice> findInvoicesFromMicrosoft(List<Invoice> invoices) {
+    public static  List<Invoice> findInvoicesFromMicrosoft(List<Invoice> invoices) {
         List<Invoice> result = new ArrayList<>();
         for(Invoice invoice: invoices) {
             if(invoice.getCustomer() == Customer.MICROSOFT) {
@@ -41,4 +55,5 @@ public class Main {
             }
         }
         return result;
-    }*/
+    }
+    */
