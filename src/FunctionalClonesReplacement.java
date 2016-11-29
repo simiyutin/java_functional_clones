@@ -11,28 +11,30 @@ import com.intellij.refactoring.introduceParameter.IntroduceParameterProcessor;
 import com.intellij.refactoring.introduceParameter.Util;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
-import com.intellij.util.ui.UIUtil;
 import gnu.trove.TIntArrayList;
 import org.jetbrains.annotations.NonNls;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class FunctionalClonesReplacement extends AnAction {
 
-    ArrayList<PsiMethod> methodsToRefactor;
+
 
     public void actionPerformed(AnActionEvent event) {
 
         final PsiFile file = event.getData(LangDataKeys.PSI_FILE);
         final Project project = event.getData(PlatformDataKeys.PROJECT);
         final Editor editor = event.getData(CommonDataKeys.EDITOR);
-        methodsToRefactor = new ArrayList<>();
 
 
-        migrateToStreams(file, project);
-        extractFunctionalParameters(file, project, editor);
-        removeDuplicatedFunctions(file, project);
+
+
+        Set<PsiMethod> affectedMethods = migrateToStreams(file, project);
+        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods, project, editor);
+        removeDuplicatedFunctions(refactoredMethods, file, project);
 
 
 
@@ -42,7 +44,7 @@ public class FunctionalClonesReplacement extends AnAction {
 
     }
 
-    private void migrateToStreams(PsiFile file, Project project) {
+    private Set<PsiMethod> migrateToStreams(PsiFile file, Project project) {
         InspectionManager manager = new InspectionManagerEx(project);
         ProblemsHolder holder = new ProblemsHolder(manager, file, true);
         PsiElementVisitor elementVisitor = new StreamApiMigrationInspection().buildVisitor(holder, true);
@@ -50,6 +52,7 @@ public class FunctionalClonesReplacement extends AnAction {
         CollectAllElementsVisitor collector = new CollectAllElementsVisitor();
         file.accept(collector);
         List<PsiElement> elements = collector.getAllElements();
+        Set<PsiMethod> affectedMethods = new HashSet<>();
 
         for (PsiElement element : elements) {
             element.accept(elementVisitor);
@@ -57,48 +60,57 @@ public class FunctionalClonesReplacement extends AnAction {
 
         WriteCommandAction.runWriteCommandAction(project, () -> {
             for (ProblemDescriptor descriptor : holder.getResults()) {
-                QuickFix[] fixes = descriptor.getFixes();
-                fixes[0].applyFix(project, descriptor);
+                PsiElement element = descriptor.getPsiElement();
+                if(element != null) {
+                    PsiMethod method = Util.getContainingMethod(descriptor.getPsiElement());
+                    affectedMethods.add(method);
+                    QuickFix[] fixes = descriptor.getFixes();
+                    fixes[0].applyFix(project, descriptor);
+                }
             }
         });
+
+        return affectedMethods;
     }
 
-    private void  extractFunctionalParameters(PsiFile file, Project project, Editor editor) {
-        List<PsiExpression> expressions = getExpressionsToExtractAsParameters(file);
+    private Set<PsiMethod> extractFunctionalParameters(Set<PsiMethod> prevMethods, Project project, Editor editor) {
+        List<PsiExpression> expressions = getExpressionsToExtractAsParameters(prevMethods);
+        Set<PsiMethod> affectedMethods = new HashSet<>();
 
-        //todo только в тех эекспрешнах, которые были зарефакторены предыдущим кодом
         expressions.forEach(expr -> {
-            perform("azaza", expr, project, editor, false);
+            PsiMethod method = Util.getContainingMethod(expr);
+            affectedMethods.add(method);
+            performExtraction("azaza", expr, project, editor, false);
         });
 
+        return affectedMethods;
+
     }
 
-    private void removeDuplicatedFunctions(PsiFile file, Project project) {
+    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor, PsiFile file, Project project) {
 
-        ArrayList<PsiMethod> refactored = new ArrayList<>();
         methodsToRefactor.forEach(psiMethod -> removeDuplicates(psiMethod, project, file));
     }
 
-    private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(PsiFile file){
+    private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(Set<PsiMethod> methods){
 
         CollectExpressionsToExtractVisitor visitor = new CollectExpressionsToExtractVisitor();
 
-        file.accept(visitor);
+        methods.forEach(method -> method.accept(visitor));
 
         return visitor.getExpressions();
     }
 
-    private boolean perform(@NonNls String parameterName,
-                                   PsiExpression expr,
-                                   Project project,
-                                   Editor editor,
-                                   final boolean replaceDuplicates) {
+    private boolean performExtraction(@NonNls String parameterName,
+                                      PsiExpression expr,
+                                      Project project,
+                                      Editor editor,
+                                      final boolean replaceDuplicates) {
 
 
 
         TIntArrayList parametersToRemove = new TIntArrayList();
         PsiMethod method = getContainingMethod(expr);
-        methodsToRefactor.add(method); // todo refactor - make clean function
         PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(expr);
         IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
                 project,
