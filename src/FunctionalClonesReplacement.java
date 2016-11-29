@@ -1,15 +1,17 @@
+import com.intellij.analysis.AnalysisScope;
 import com.intellij.codeInspection.*;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.streamMigration.StreamApiMigrationInspection;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Document;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.refactoring.introduceParameter.IntroduceParameterProcessor;
 import com.intellij.refactoring.introduceParameter.Util;
 import com.intellij.refactoring.util.RefactoringUtil;
+import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
+import com.intellij.util.ui.UIUtil;
 import gnu.trove.TIntArrayList;
 import org.jetbrains.annotations.NonNls;
 
@@ -18,14 +20,19 @@ import java.util.List;
 
 public class FunctionalClonesReplacement extends AnAction {
 
+    ArrayList<PsiMethod> methodsToRefactor;
+
     public void actionPerformed(AnActionEvent event) {
 
         final PsiFile file = event.getData(LangDataKeys.PSI_FILE);
         final Project project = event.getData(PlatformDataKeys.PROJECT);
         final Editor editor = event.getData(CommonDataKeys.EDITOR);
+        methodsToRefactor = new ArrayList<>();
+
 
         migrateToStreams(file, project);
         extractFunctionalParameters(file, project, editor);
+        removeDuplicatedFunctions(file, project);
 
 
 
@@ -58,11 +65,18 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private void  extractFunctionalParameters(PsiFile file, Project project, Editor editor) {
         List<PsiExpression> expressions = getExpressionsToExtractAsParameters(file);
+
         //todo только в тех эекспрешнах, которые были зарефакторены предыдущим кодом
         expressions.forEach(expr -> {
-            perform("azaza", expr, project, editor, 0, false);
+            perform("azaza", expr, project, editor, false);
         });
 
+    }
+
+    private void removeDuplicatedFunctions(PsiFile file, Project project) {
+
+        ArrayList<PsiMethod> refactored = new ArrayList<>();
+        methodsToRefactor.forEach(psiMethod -> removeDuplicates(psiMethod, project, file));
     }
 
     private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(PsiFile file){
@@ -78,17 +92,13 @@ public class FunctionalClonesReplacement extends AnAction {
                                    PsiExpression expr,
                                    Project project,
                                    Editor editor,
-                                   int enclosingLevel,
                                    final boolean replaceDuplicates) {
 
-        PsiMethod method = Util.getContainingMethod(expr);
-        if (method == null) return false;
 
-        final List<PsiMethod> methods = com.intellij.refactoring.introduceParameter.IntroduceParameterHandler.getEnclosingMethods(method);
-        method = methods.get(enclosingLevel);
 
         TIntArrayList parametersToRemove = new TIntArrayList();
-
+        PsiMethod method = getContainingMethod(expr);
+        methodsToRefactor.add(method); // todo refactor - make clean function
         PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(expr);
         IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
                 project,
@@ -116,6 +126,24 @@ public class FunctionalClonesReplacement extends AnAction {
 
         editor.getSelectionModel().removeSelection();
         return true;
+    }
+
+    private PsiMethod getContainingMethod(PsiExpression expr) {
+
+        PsiMethod method = Util.getContainingMethod(expr);
+        if (method == null) return null;
+
+        final List<PsiMethod> methods = com.intellij.refactoring.introduceParameter.IntroduceParameterHandler.getEnclosingMethods(method);
+        method = methods.get(0);
+
+        return method;
+    }
+
+    private void removeDuplicates(PsiMethod psiMethod, Project project, PsiFile file) {
+
+        MethodDuplicatesHandler.invokeOnScope(project, psiMethod, new AnalysisScope(file));
+
+        //checkResultByFile(filePath + ".after");
     }
 }
 /*Document is locked by write PSI operations. Use PsiDocumentManager.doPostponedOperationsAndUnblockDocument() to commit PSI changes to the document.*/
