@@ -1,4 +1,5 @@
 import com.intellij.analysis.AnalysisScope;
+import com.intellij.codeInsight.completion.JavaCompletionUtil;
 import com.intellij.codeInspection.*;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.streamMigration.StreamApiMigrationInspection;
@@ -6,21 +7,26 @@ import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
+import com.intellij.openapi.ui.Messages;
 import com.intellij.psi.*;
+import com.intellij.psi.codeStyle.JavaCodeStyleManager;
+import com.intellij.psi.codeStyle.SuggestedNameInfo;
+import com.intellij.psi.codeStyle.VariableKind;
+import com.intellij.refactoring.introduceParameter.AbstractJavaInplaceIntroducer;
 import com.intellij.refactoring.introduceParameter.IntroduceParameterProcessor;
 import com.intellij.refactoring.introduceParameter.Util;
+import com.intellij.refactoring.rename.RenameProcessor;
+import com.intellij.refactoring.ui.NameSuggestionsGenerator;
 import com.intellij.refactoring.util.RefactoringUtil;
+import com.intellij.refactoring.util.duplicates.Match;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
+import com.intellij.util.ArrayUtil;
 import gnu.trove.TIntArrayList;
 import org.jetbrains.annotations.NonNls;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class FunctionalClonesReplacement extends AnAction {
-
 
 
     public void actionPerformed(AnActionEvent event) {
@@ -29,18 +35,9 @@ public class FunctionalClonesReplacement extends AnAction {
         final Project project = event.getData(PlatformDataKeys.PROJECT);
         final Editor editor = event.getData(CommonDataKeys.EDITOR);
 
-
-
-
         Set<PsiMethod> affectedMethods = migrateToStreams(file, project);
         Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods, project, editor);
         removeDuplicatedFunctions(refactoredMethods, file, project);
-
-
-
-//
-//        String txt = Messages.showInputDialog(project, "What is your name?", "Input your name", Messages.getQuestionIcon());
-//        Messages.showMessageDialog(project, "Hello, " + txt + "!\n I am glad to see you.", "Information", Messages.getInformationIcon());
 
     }
 
@@ -61,7 +58,7 @@ public class FunctionalClonesReplacement extends AnAction {
         WriteCommandAction.runWriteCommandAction(project, () -> {
             for (ProblemDescriptor descriptor : holder.getResults()) {
                 PsiElement element = descriptor.getPsiElement();
-                if(element != null) {
+                if (element != null) {
                     PsiMethod method = Util.getContainingMethod(descriptor.getPsiElement());
                     affectedMethods.add(method);
                     QuickFix[] fixes = descriptor.getFixes();
@@ -80,19 +77,71 @@ public class FunctionalClonesReplacement extends AnAction {
         expressions.forEach(expr -> {
             PsiMethod method = Util.getContainingMethod(expr);
             affectedMethods.add(method);
-            performExtraction("azaza", expr, project, editor, false);
+            String name = createNameSuggestionGenerator(expr, null, project, null).getSuggestedNameInfo(expr.getType()).names[1];
+            performExtraction(name, expr, project, editor, false);
         });
 
         return affectedMethods;
 
     }
 
-    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor, PsiFile file, Project project) {
+    private static NameSuggestionsGenerator createNameSuggestionGenerator(final PsiExpression expr,
+                                                                            final String propName,
+                                                                            final Project project, String enteredName) {
+        return new NameSuggestionsGenerator() {
+            public SuggestedNameInfo getSuggestedNameInfo(PsiType type) {
+                final JavaCodeStyleManager codeStyleManager = JavaCodeStyleManager.getInstance(project);
+                SuggestedNameInfo info = codeStyleManager.suggestVariableName(VariableKind.PARAMETER, propName, expr != null && expr.isValid() ? expr : null, type);
 
-        methodsToRefactor.forEach(psiMethod -> removeDuplicates(psiMethod, project, file));
+                if (expr != null && expr.isValid()) {
+                    info = codeStyleManager.suggestUniqueVariableName(info, expr, true);
+                }
+                final String[] strings = AbstractJavaInplaceIntroducer.appendUnresolvedExprName(JavaCompletionUtil
+                        .completeVariableNameForRefactoring(codeStyleManager, type, VariableKind.LOCAL_VARIABLE, info), expr);
+                return new SuggestedNameInfo.Delegate(enteredName != null ? ArrayUtil.mergeArrays(new String[]{enteredName}, strings) : strings, info);
+            }
+
+        };
     }
 
-    private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(Set<PsiMethod> methods){
+
+    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor, PsiFile file, Project project) {
+
+
+        List<PsiMethod> alreadyReplacedMethods = new ArrayList<>();
+        for (PsiMethod psiMethod : methodsToRefactor) {
+            if (!alreadyReplacedMethods.contains(psiMethod)) {
+                List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
+                if (!matches.isEmpty()) {
+
+                    for (Match match : matches) {
+                        if (MyUtil.isMatchAloneInMethod(match)) {
+                            PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
+                            final RenameProcessor renameProcessor = new MyRenameProcessor(project, matchedMethod, psiMethod.getName(), false, false);
+                            renameProcessor.run();
+
+                            WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
+                            alreadyReplacedMethods.add(matchedMethod);
+                        }
+                    }
+
+
+                    String newName = Messages.showInputDialog(project, "Please choose more broad function name", "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
+                    final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
+                    renameProcessor.run();
+
+
+                    if (alreadyReplacedMethods.size() < methodsToRefactor.size()) {
+                        MethodDuplicatesHandler.invokeOnScope(project, Collections.singleton(psiMethod), new AnalysisScope(file), true);
+                    }
+                }
+
+            }
+
+        }
+    }
+
+    private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(Set<PsiMethod> methods) {
 
         CollectExpressionsToExtractVisitor visitor = new CollectExpressionsToExtractVisitor();
 
@@ -106,7 +155,6 @@ public class FunctionalClonesReplacement extends AnAction {
                                       Project project,
                                       Editor editor,
                                       final boolean replaceDuplicates) {
-
 
 
         TIntArrayList parametersToRemove = new TIntArrayList();
@@ -151,13 +199,13 @@ public class FunctionalClonesReplacement extends AnAction {
         return method;
     }
 
-    private void removeDuplicates(PsiMethod psiMethod, Project project, PsiFile file) {
-
-        MethodDuplicatesHandler.invokeOnScope(project, psiMethod, new AnalysisScope(file));
-
-        //checkResultByFile(filePath + ".after");
-    }
 }
+
+
+
+//        String txt = Messages.showInputDialog(project, "What is your name?", "Input your name", Messages.getQuestionIcon());
+//        Messages.showMessageDialog(project, "Hello, " + txt + "!\n I am glad to see you.", "Information", Messages.getInformationIcon());
+
 /*Document is locked by write PSI operations. Use PsiDocumentManager.doPostponedOperationsAndUnblockDocument() to commit PSI changes to the document.*/
 
 
