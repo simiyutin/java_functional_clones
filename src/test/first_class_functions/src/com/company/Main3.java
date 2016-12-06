@@ -7,7 +7,8 @@ import java.util.Map;
 class Destination {
     void addAnnotation(String key, Annotation annotation){};
     void doImportantBusiness(List<Annotation> annotations) {}
-    void doImportantBusinessWithEntry(Map.Entry<String, List<Annotation>> e) {}
+    static void doImportantBusinessWithEntry(Map.Entry<String, List<Annotation>> e) {}
+    static void doAnotherImportantBusinessWithEntry(Map.Entry<String, List<Annotation>> e) {}
 }
 
 public class Main3 {
@@ -21,6 +22,7 @@ public class Main3 {
         test2();
         test3();
         test4();
+        test5();
     }
 
 
@@ -50,18 +52,25 @@ public class Main3 {
     }
 
     void test4() {
-        Destination destination = new Destination();
 
         for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
             if (e.getValue() != null && !e.getValue().isEmpty()) {
-                destination.doImportantBusinessWithEntry(e);
+                Destination.doImportantBusinessWithEntry(e);
             }
         }
     }
 
-    void test3() {
+    void test5() {
 
-        Destination destination = new Destination();
+        for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
+            if (e.getValue() != null && !e.getValue().isEmpty()) {
+                Destination.doAnotherImportantBusinessWithEntry(e);
+            }
+        }
+    }
+
+
+    void test3() {
 
         for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
             if (e.getKey().contains("database")) {
