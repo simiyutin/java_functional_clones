@@ -18,16 +18,15 @@ public class Main3 {
     }
 
     void caller() {
-        test();
-        test2();
-        test3();
-        test4();
-        test5();
+        addNotEmptyAnnotations();
+        printDatabaseAnnotations();
+        doOneBusinessWithEachAnnotations();
+        doAnotherBusinessWithAnnotations();
     }
 
 
 
-    void test() {
+    void addNotEmptyAnnotations() {
 
         Destination destination = new Destination();
 
@@ -40,18 +39,7 @@ public class Main3 {
         }
     }
 
-    void test2() {
-
-        Destination destination = new Destination();
-
-        for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
-            if (e.getValue() != null && !e.getValue().isEmpty()) {
-                destination.doImportantBusiness(e.getValue());
-            }
-        }
-    }
-
-    void test4() {
+    void doOneBusinessWithEachAnnotations() {
 
         for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
             if (e.getValue() != null && !e.getValue().isEmpty()) {
@@ -60,7 +48,7 @@ public class Main3 {
         }
     }
 
-    void test5() {
+    void doAnotherBusinessWithAnnotations() {
 
         for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
             if (e.getValue() != null && !e.getValue().isEmpty()) {
@@ -70,7 +58,7 @@ public class Main3 {
     }
 
 
-    void test3() {
+    void printDatabaseAnnotations() {
 
         for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
             if (e.getKey().contains("database")) {
