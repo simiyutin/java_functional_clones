@@ -1,6 +1,14 @@
+import com.intellij.codeInsight.completion.JavaCompletionUtil;
+import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
+import com.intellij.psi.codeStyle.JavaCodeStyleManager;
+import com.intellij.psi.codeStyle.SuggestedNameInfo;
+import com.intellij.psi.codeStyle.VariableKind;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.refactoring.introduceParameter.AbstractJavaInplaceIntroducer;
+import com.intellij.refactoring.ui.NameSuggestionsGenerator;
 import com.intellij.refactoring.util.duplicates.Match;
+import com.intellij.util.ArrayUtil;
 import org.jetbrains.annotations.Nullable;
 
 public class MyUtil {
@@ -50,5 +58,32 @@ public class MyUtil {
             //TODO DuplicatesFinder.matchReturnStatement
         }
         return false;
+    }
+
+    public static String getNameForParameter(PsiExpression expr, Project project) {
+
+        String[] names = createNameSuggestionGenerator(expr, null, project, null).getSuggestedNameInfo(expr.getType()).names;
+        if (names.length > 1) return names[1];
+        if (names.length == 1) return names[0];
+        return expr.getType().toString().trim();
+    }
+
+    private static NameSuggestionsGenerator createNameSuggestionGenerator(final PsiExpression expr,
+                                                                          final String propName,
+                                                                          final Project project, String enteredName) {
+        return new NameSuggestionsGenerator() {
+            public SuggestedNameInfo getSuggestedNameInfo(PsiType type) {
+                final JavaCodeStyleManager codeStyleManager = JavaCodeStyleManager.getInstance(project);
+                SuggestedNameInfo info = codeStyleManager.suggestVariableName(VariableKind.PARAMETER, propName, expr != null && expr.isValid() ? expr : null, type);
+
+                if (expr != null && expr.isValid()) {
+                    info = codeStyleManager.suggestUniqueVariableName(info, expr, true);
+                }
+                final String[] strings = AbstractJavaInplaceIntroducer.appendUnresolvedExprName(JavaCompletionUtil
+                        .completeVariableNameForRefactoring(codeStyleManager, type, VariableKind.LOCAL_VARIABLE, info), expr);
+                return new SuggestedNameInfo.Delegate(enteredName != null ? ArrayUtil.mergeArrays(new String[]{enteredName}, strings) : strings, info);
+            }
+
+        };
     }
 }

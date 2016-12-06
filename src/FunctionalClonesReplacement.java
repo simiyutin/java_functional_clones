@@ -82,33 +82,16 @@ public class FunctionalClonesReplacement extends AnAction {
 
         expressions.forEach(expr -> {
             PsiMethod method = Util.getContainingMethod(expr);
-            affectedMethods.add(method);
-            //todo move to getName, throws java.lang.ArrayIndexOutOfBoundsException exceptions sometimes
-            String name = createNameSuggestionGenerator(expr, null, project, null).getSuggestedNameInfo(expr.getType()).names[1];
-            performExtraction(name, expr, project, editor, false);
+            if (method != null) {
+                affectedMethods.add(method);
+                String name = MyUtil.getNameForParameter(expr, project);
+                performExtraction(name, expr, project, editor, false);
+            }
+
         });
 
         return affectedMethods;
 
-    }
-
-    private static NameSuggestionsGenerator createNameSuggestionGenerator(final PsiExpression expr,
-                                                                            final String propName,
-                                                                            final Project project, String enteredName) {
-        return new NameSuggestionsGenerator() {
-            public SuggestedNameInfo getSuggestedNameInfo(PsiType type) {
-                final JavaCodeStyleManager codeStyleManager = JavaCodeStyleManager.getInstance(project);
-                SuggestedNameInfo info = codeStyleManager.suggestVariableName(VariableKind.PARAMETER, propName, expr != null && expr.isValid() ? expr : null, type);
-
-                if (expr != null && expr.isValid()) {
-                    info = codeStyleManager.suggestUniqueVariableName(info, expr, true);
-                }
-                final String[] strings = AbstractJavaInplaceIntroducer.appendUnresolvedExprName(JavaCompletionUtil
-                        .completeVariableNameForRefactoring(codeStyleManager, type, VariableKind.LOCAL_VARIABLE, info), expr);
-                return new SuggestedNameInfo.Delegate(enteredName != null ? ArrayUtil.mergeArrays(new String[]{enteredName}, strings) : strings, info);
-            }
-
-        };
     }
 
 
@@ -167,29 +150,32 @@ public class FunctionalClonesReplacement extends AnAction {
         TIntArrayList parametersToRemove = new TIntArrayList();
         PsiMethod method = getContainingMethod(expr);
         PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(expr);
-        IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
-                project,
-                method, // равны со следующим. Надо понять, как его находить
-                method, //
-                expr, // вроде как просто мой экспрешн, равен следующему
-                expr, //
-                null, // null
-                false,
-                parameterName, // имя параметра, запихиваемого в функцию
-                true, //false
-                1, // 1
-                false, // false
-                false, // false
-                forcedType, // а вот это важная фигня
-                parametersToRemove //пустой, видимо можно передать просто new ...
-        ) {
-            @Override
-            protected boolean isReplaceDuplicates() {
-                return replaceDuplicates;
-            }
-        };
+        if (method != null) {
+            IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
+                    project,
+                    method, // равны со следующим. Надо понять, как его находить
+                    method, //
+                    expr, // вроде как просто мой экспрешн, равен следующему
+                    expr, //
+                    null, // null
+                    false,
+                    parameterName, // имя параметра, запихиваемого в функцию
+                    true, //false
+                    1, // 1
+                    false, // false
+                    false, // false
+                    forcedType, // а вот это важная фигня
+                    parametersToRemove //пустой, видимо можно передать просто new ...
+            ) {
+                @Override
+                protected boolean isReplaceDuplicates() {
+                    return replaceDuplicates;
+                }
+            };
 
-        processor.run();
+            processor.run();
+        }
+
 
         editor.getSelectionModel().removeSelection();
         return true;
