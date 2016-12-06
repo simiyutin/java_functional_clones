@@ -37,6 +37,12 @@ public class Main3 {
                 }
             }
         }
+
+        for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
+            if (e.getValue() != null && !e.getValue().isEmpty()) {
+                Destination.doImportantBusinessWithEntry(e);
+            }
+        }
     }
 
     void doOneBusinessWithEachAnnotations() {
