@@ -28,20 +28,24 @@ import java.util.*;
 
 public class FunctionalClonesReplacement extends AnAction {
 
+    private Project project;
+    private PsiFile file;
+    private Editor editor;
+
 
     public void actionPerformed(AnActionEvent event) {
 
-        final PsiFile file = event.getData(LangDataKeys.PSI_FILE);
-        final Project project = event.getData(PlatformDataKeys.PROJECT);
-        final Editor editor = event.getData(CommonDataKeys.EDITOR);
+        file = event.getData(LangDataKeys.PSI_FILE);
+        project = event.getData(PlatformDataKeys.PROJECT);
+        editor = event.getData(CommonDataKeys.EDITOR);
 
-        Set<PsiMethod> affectedMethods = migrateToStreams(file, project);
-        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods, project, editor);
-        removeDuplicatedFunctions(refactoredMethods, file, project);
+        Set<PsiMethod> affectedMethods = migrateToStreams();
+        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
+        removeDuplicatedFunctions(refactoredMethods);
 
     }
 
-    private Set<PsiMethod> migrateToStreams(PsiFile file, Project project) {
+    private Set<PsiMethod> migrateToStreams() {
         InspectionManager manager = new InspectionManagerEx(project);
         ProblemsHolder holder = new ProblemsHolder(manager, file, true);
         StreamApiMigrationInspection inspection = new StreamApiMigrationInspection();
@@ -72,7 +76,7 @@ public class FunctionalClonesReplacement extends AnAction {
         return affectedMethods;
     }
 
-    private Set<PsiMethod> extractFunctionalParameters(Set<PsiMethod> prevMethods, Project project, Editor editor) {
+    private Set<PsiMethod> extractFunctionalParameters(Set<PsiMethod> prevMethods) {
         List<PsiExpression> expressions = getExpressionsToExtractAsParameters(prevMethods);
         Set<PsiMethod> affectedMethods = new HashSet<>();
 
@@ -108,7 +112,7 @@ public class FunctionalClonesReplacement extends AnAction {
     }
 
 
-    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor, PsiFile file, Project project) {
+    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor) {
 
 
         List<PsiMethod> alreadyReplacedMethods = new ArrayList<>();
@@ -146,7 +150,7 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(Set<PsiMethod> methods) {
 
-        CollectExpressionsToExtractVisitor visitor = new CollectExpressionsToExtractVisitor();
+        CollectExpressionsToExtractVisitor visitor = new CollectExpressionsToExtractVisitor(project);
 
         methods.forEach(method -> method.accept(visitor));
 
