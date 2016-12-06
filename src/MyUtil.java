@@ -21,6 +21,8 @@ public class MyUtil {
 //        return null;
 //    }
 
+
+
     public static boolean isMatchAloneInMethod(Match match) {
         return isAloneUpper(match.getMatchStart()) && isAloneLower(match.getMatchEnd());
     }
@@ -45,6 +47,7 @@ public class MyUtil {
             return true;
         } else if (nextSibling instanceof PsiReturnStatement) {
             return true; //todo не фига не так, переделать
+            //TODO DuplicatesFinder.matchReturnStatement
         }
         return false;
     }
