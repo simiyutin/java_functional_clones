@@ -6,13 +6,21 @@ import java.util.Map;
 
 class Destination {
     void addAnnotation(String key, Annotation annotation){};
-    void doImportantBusiness() {}
+    void doImportantBusiness(List<Annotation> annotations) {}
+    void doImportantBusinessWithEntry(Map.Entry<String, List<Annotation>> e) {}
 }
 
 public class Main3 {
 
     Map<String, List<Annotation>> getAnnotations() {
         return null;
+    }
+
+    void caller() {
+        test();
+        test2();
+        test3();
+        test4();
     }
 
 
@@ -36,7 +44,17 @@ public class Main3 {
 
         for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
             if (e.getValue() != null && !e.getValue().isEmpty()) {
-                destination.doImportantBusiness();
+                destination.doImportantBusiness(e.getValue());
+            }
+        }
+    }
+
+    void test4() {
+        Destination destination = new Destination();
+
+        for (Map.Entry<String, List<Annotation>> e : getAnnotations().entrySet()) {
+            if (e.getValue() != null && !e.getValue().isEmpty()) {
+                destination.doImportantBusinessWithEntry(e);
             }
         }
     }

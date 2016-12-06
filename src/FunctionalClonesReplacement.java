@@ -44,7 +44,9 @@ public class FunctionalClonesReplacement extends AnAction {
     private Set<PsiMethod> migrateToStreams(PsiFile file, Project project) {
         InspectionManager manager = new InspectionManagerEx(project);
         ProblemsHolder holder = new ProblemsHolder(manager, file, true);
-        PsiElementVisitor elementVisitor = new StreamApiMigrationInspection().buildVisitor(holder, true);
+        StreamApiMigrationInspection inspection = new StreamApiMigrationInspection();
+        inspection.SUGGEST_FOREACH = true;
+        PsiElementVisitor elementVisitor = inspection.buildVisitor(holder, true);
 
         CollectAllElementsVisitor collector = new CollectAllElementsVisitor();
         file.accept(collector);
@@ -77,6 +79,7 @@ public class FunctionalClonesReplacement extends AnAction {
         expressions.forEach(expr -> {
             PsiMethod method = Util.getContainingMethod(expr);
             affectedMethods.add(method);
+            //todo move to getName, throws java.lang.ArrayIndexOutOfBoundsException exceptions sometimes
             String name = createNameSuggestionGenerator(expr, null, project, null).getSuggestedNameInfo(expr.getType()).names[1];
             performExtraction(name, expr, project, editor, false);
         });
