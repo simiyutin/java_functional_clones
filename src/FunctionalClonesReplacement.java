@@ -54,8 +54,8 @@ public class FunctionalClonesReplacement extends AnAction {
     private void doRefactor(PsiFile psiFile) {
         file = psiFile;
         Set<PsiMethod> affectedMethods = migrateToStreams();
-        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
-        removeDuplicatedFunctions(refactoredMethods);
+//        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
+//        removeDuplicatedFunctions(refactoredMethods);
     }
 
     private Set<PsiMethod> migrateToStreams() {
@@ -79,10 +79,19 @@ public class FunctionalClonesReplacement extends AnAction {
                 PsiElement element = descriptor.getPsiElement();
                 if (element != null) {
                     try {
+
                         PsiMethod method = Util.getContainingMethod(descriptor.getPsiElement());
+
+
+                        QuickFix fix = descriptor.getFixes()[0];
+
+                        if ("Replace with findFirst()".equals(fix.getName())) {
+                            continue;
+                        }
                         affectedMethods.add(method);
-                        QuickFix[] fixes = descriptor.getFixes();
-                        fixes[0].applyFix(project, descriptor);
+                        fix.applyFix(project, descriptor);
+
+
 
                     } catch (IncorrectOperationException ex) {
                         ex.printStackTrace();
