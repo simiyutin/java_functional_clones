@@ -27,9 +27,10 @@ public class FunctionalClonesReplacement extends AnAction {
     private Project project;
     private PsiFile file;
     PsiFileFactory fileFactory;
+    static Set<String> declinedFiles = new HashSet<>(Arrays.asList("VectorSet", "AntAnalyzer", "ComponentHelper", "Union", "BaseResourceCollectionContainer"));
 
     private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
-        if ("java".equals(vfile.getExtension())) {
+        if ("java".equals(vfile.getExtension()) && ! declinedFiles.contains(vfile.getNameWithoutExtension())) {
             consumer.accept(PsiManager.getInstance(project).findFile(vfile));
         }
         for (VirtualFile vfile2 : vfile.getChildren()) {

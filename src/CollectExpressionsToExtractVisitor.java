@@ -27,7 +27,7 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
 
     @Override
     public void visitElement(PsiElement element) {
-        if (element instanceof PsiExpression && !hasReferencedVariables(((PsiExpression) element)) && !callsNotSharedMethods(element)) {
+        if (element instanceof PsiExpression && !hasReferencedVariables(((PsiExpression) element)) && !doesNotCallSharedMethods(element)) {
 
             if(element instanceof PsiLambdaExpression) {
                 expressions.add(((PsiLambdaExpression) element));
@@ -60,7 +60,7 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
     }
 
     //todo - may be too strict
-    private boolean callsNotSharedMethods(PsiElement element) {
+    private boolean doesNotCallSharedMethods(PsiElement element) {
 
         Collection<PsiMethodCallExpression> calls = PsiTreeUtil.findChildrenOfType(element, PsiMethodCallExpression.class);
         for (PsiMethodCallExpression expr : calls) {
