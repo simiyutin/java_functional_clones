@@ -63,9 +63,8 @@ public class MyUtil {
     public static String getNameForParameter(PsiExpression expr, Project project) {
 
         String[] names = createNameSuggestionGenerator(expr, null, project, null).getSuggestedNameInfo(expr.getType()).names;
-        if (names.length > 1) return names[1];
-        if (names.length == 1) return names[0];
-        return expr.getType().toString().trim();
+
+        return names[0];
     }
 
     private static NameSuggestionsGenerator createNameSuggestionGenerator(final PsiExpression expr,
