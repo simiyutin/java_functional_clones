@@ -1,5 +1,4 @@
 import com.intellij.analysis.AnalysisScope;
-import com.intellij.codeInsight.completion.JavaCompletionUtil;
 import com.intellij.codeInspection.*;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.streamMigration.StreamApiMigrationInspection;
@@ -8,41 +7,48 @@ import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.psi.*;
-import com.intellij.psi.codeStyle.JavaCodeStyleManager;
-import com.intellij.psi.codeStyle.SuggestedNameInfo;
-import com.intellij.psi.codeStyle.VariableKind;
-import com.intellij.refactoring.introduceParameter.AbstractJavaInplaceIntroducer;
 import com.intellij.refactoring.introduceParameter.IntroduceParameterProcessor;
 import com.intellij.refactoring.introduceParameter.Util;
 import com.intellij.refactoring.rename.RenameProcessor;
-import com.intellij.refactoring.ui.NameSuggestionsGenerator;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.duplicates.Match;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
-import com.intellij.util.ArrayUtil;
 import gnu.trove.TIntArrayList;
 import org.jetbrains.annotations.NonNls;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
     private PsiFile file;
-    private Editor editor;
+
+    public void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
+        if ("java".equals(vfile.getExtension())) {
+            consumer.accept(PsiManager.getInstance(project).findFile(vfile));
+        }
+        for (VirtualFile vfile2 : vfile.getChildren()) {
+            acceptAllPsiFiles(vfile2, consumer);
+        }
+    }
 
 
     public void actionPerformed(AnActionEvent event) {
 
-        file = event.getData(LangDataKeys.PSI_FILE);
         project = event.getData(PlatformDataKeys.PROJECT);
-        editor = event.getData(CommonDataKeys.EDITOR);
 
+        acceptAllPsiFiles(project.getBaseDir(), this::doRefactor);
+
+    }
+
+    void doRefactor(PsiFile psiFile) {
+        file = psiFile;
         Set<PsiMethod> affectedMethods = migrateToStreams();
         Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
         removeDuplicatedFunctions(refactoredMethods);
-
     }
 
     private Set<PsiMethod> migrateToStreams() {
@@ -85,7 +91,7 @@ public class FunctionalClonesReplacement extends AnAction {
             if (method != null) {
                 affectedMethods.add(method);
                 String name = MyUtil.getNameForParameter(expr, project);
-                performExtraction(name, expr, project, editor, false);
+                performExtraction(name, expr, project, false);
             }
 
         });
@@ -116,7 +122,7 @@ public class FunctionalClonesReplacement extends AnAction {
                     }
 
 
-                    String newName = Messages.showInputDialog(project, "Please choose more broad function name", "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
+                    String newName = Messages.showInputDialog(project, "Please choose more broad function name for function" + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
                     final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
                     renameProcessor.run();
 
@@ -135,7 +141,10 @@ public class FunctionalClonesReplacement extends AnAction {
 
         CollectExpressionsToExtractVisitor visitor = new CollectExpressionsToExtractVisitor(project);
 
-        methods.forEach(method -> method.accept(visitor));
+        if (methods != null) {
+            methods.stream().filter(Objects::nonNull).forEach(method -> method.accept(visitor));
+        }
+
 
         return visitor.getExpressions();
     }
@@ -143,7 +152,6 @@ public class FunctionalClonesReplacement extends AnAction {
     private boolean performExtraction(@NonNls String parameterName,
                                       PsiExpression expr,
                                       Project project,
-                                      Editor editor,
                                       final boolean replaceDuplicates) {
 
 
@@ -176,8 +184,6 @@ public class FunctionalClonesReplacement extends AnAction {
             processor.run();
         }
 
-
-        editor.getSelectionModel().removeSelection();
         return true;
     }
 
@@ -193,65 +199,3 @@ public class FunctionalClonesReplacement extends AnAction {
     }
 
 }
-
-
-
-//        String txt = Messages.showInputDialog(project, "What is your name?", "Input your name", Messages.getQuestionIcon());
-//        Messages.showMessageDialog(project, "Hello, " + txt + "!\n I am glad to see you.", "Information", Messages.getInformationIcon());
-
-/*Document is locked by write PSI operations. Use PsiDocumentManager.doPostponedOperationsAndUnblockDocument() to commit PSI changes to the document.*/
-
-
-//PsiFile file = event.getData(LangDataKeys.PSI_FILE);
-//PsiMethod main = (PsiMethod) file.findElementAt(6);
-
-//        final DataContext dataContext = event.getDataContext();
-//        final PsiFile file = CommonDataKeys.PSI_FILE.getData(dataContext);
-//        Project project = event.getData(PlatformDataKeys.PROJECT);
-//
-//
-//        CollectAllElementsVisitor visitor = new CollectAllElementsVisitor();
-//
-//        file.accept(visitor);
-//
-//        if(true)
-//        return;
-//
-//        PsiElement[] test3 = file.getChildren();
-//
-//        PsiElementFactory psiElementFactory = JavaPsiFacade.getInstance(project).getElementFactory();
-//
-//
-//        WriteCommandAction.runWriteCommandAction(project, () -> {
-//            PsiComment comment = psiElementFactory.createCommentFromText("//asasasasas", file);
-//            file.addBefore(comment, file.getFirstChild());
-//
-//            PsiElement[] classMainChildren = test3[3].getChildren();
-//            PsiMethod method = (PsiMethod) classMainChildren[11];
-//            method.setName("notMain");
-//
-//        });
-
-
-/*
-*
-*
-*
-*
-* Пример исползования Visitor'а:
-*   public static boolean variableIsAssigned(
-    @NotNull PsiVariable variable, @Nullable PsiElement context) {
-    if (context == null) {
-      return false;
-    }
-    //Создаем визитора
-    final VariableAssignedVisitor visitor =
-      new VariableAssignedVisitor(variable, true);
-
-    пихаем визитора в дерево, для прохода по всем элементам
-    context.accept(visitor);
-    // если на каком-то элементе переменную переприсвоили, то у него поменяется флаг isAssigned
-    return visitor.isAssigned();
-  }
-
-  */
