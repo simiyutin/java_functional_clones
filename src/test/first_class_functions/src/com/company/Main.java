@@ -7,7 +7,7 @@ import java.util.stream.Collectors;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args)  throws Exception  {
         ArrayList<Invoice> allInvoices= new ArrayList<>();
 
         allInvoices.add(new Invoice());
@@ -16,7 +16,7 @@ public class Main {
         List<Invoice> test3 = findInvoicesFromOracle(allInvoices);
     }
 
-    public static List<Invoice> findInvoicesFromOracle(List<Invoice> invoices) {
+    public static List<Invoice> findInvoicesFromOracle(List<Invoice> invoices) throws Exception {
         List<Invoice> result = new ArrayList<>();
         for(Invoice invoice: invoices) {
             if(invoice.getCustomer() == Customer.ORACLE) {
