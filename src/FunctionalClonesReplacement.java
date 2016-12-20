@@ -46,18 +46,13 @@ public class FunctionalClonesReplacement extends AnAction {
 
         acceptAllPsiFiles(project.getBaseDir(), this::doRefactor);
 
-//        PsiFile origFile = event.getData(DataKeys.PSI_FILE);
-//        PsiFile clonedFile = fileFactory.createFileFromText(origFile.getText(),origFile);
-//        doRefactor(clonedFile);
-
-
     }
 
     private void doRefactor(PsiFile psiFile) {
         file = psiFile;
         Set<PsiMethod> affectedMethods = migrateToStreams();
         Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
-//        removeDuplicatedFunctions(refactoredMethods);
+        removeDuplicatedFunctions(refactoredMethods);
     }
 
     private Set<PsiMethod> migrateToStreams() {
