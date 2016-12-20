@@ -31,35 +31,34 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
 
     @Override
     public void visitElement(PsiElement element) {
-        if(element instanceof PsiLambdaExpression && !hasReferencedVariables(((PsiLambdaExpression) element))) {
-            expressions.add(((PsiLambdaExpression) element));
-        }
+        if (element instanceof PsiExpression && !hasReferencedVariables(((PsiExpression) element))) {
 
-        if(element instanceof PsiMethodReferenceExpression) {
-            expressions.add(((PsiMethodReferenceExpression) element));
+            if(element instanceof PsiLambdaExpression) {
+                expressions.add(((PsiLambdaExpression) element));
+            }
+            if(element instanceof PsiMethodReferenceExpression) {
+                expressions.add(((PsiMethodReferenceExpression) element));
+            }
         }
         element.acceptChildren(this);
     }
 
-    boolean hasReferencedVariables(PsiLambdaExpression lambdaExpression) {
+    boolean hasReferencedVariables(PsiExpression expr) {
 
         final ControlFlow controlFlow;
         try {
             controlFlow = ControlFlowFactory.getInstance(myProject)
-                    .getControlFlow(lambdaExpression, LocalsOrMyInstanceFieldsControlFlowPolicy.getInstance());
+                    .getControlFlow(expr, LocalsOrMyInstanceFieldsControlFlowPolicy.getInstance());
         }
         catch (AnalysisCanceledException ignored) {
             return true;
         }
 
-        int startOffset = controlFlow.getStartOffset(lambdaExpression);
-        int endOffset = controlFlow.getEndOffset(lambdaExpression);
+        int startOffset = controlFlow.getStartOffset(expr);
+        int endOffset = controlFlow.getEndOffset(expr);
         final List<PsiVariable> outerVariables = StreamEx.of(ControlFlowUtil.getUsedVariables(controlFlow, startOffset, endOffset))
-                .remove(variable -> PsiTreeUtil.getParentOfType(variable, PsiLambdaExpression.class, PsiClass.class) == lambdaExpression)
+                .remove(variable -> PsiTreeUtil.getParentOfType(variable, expr.getClass(), PsiClass.class) == expr)
                 .toList();
-
-//        PsiVariable variable;
-//        return lambdaExpression != null && ReferencesSearch.search(variable, new LocalSearchScope(lambdaExpression)).findFirst() != null;
 
         return ! outerVariables.isEmpty();
     }
