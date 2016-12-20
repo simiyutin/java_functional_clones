@@ -1,15 +1,11 @@
 import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.controlFlow.*;
-import com.intellij.psi.search.LocalSearchScope;
-import com.intellij.psi.search.ProjectAndLibrariesScope;
-import com.intellij.psi.search.searches.ReferencesSearch;
 import com.intellij.psi.util.PsiTreeUtil;
-import com.intellij.refactoring.introduceParameter.Util;
-import com.intellij.refactoring.util.RefactoringUtil;
 import one.util.streamex.StreamEx;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -31,7 +27,7 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
 
     @Override
     public void visitElement(PsiElement element) {
-        if (element instanceof PsiExpression && !hasReferencedVariables(((PsiExpression) element))) {
+        if (element instanceof PsiExpression && !hasReferencedVariables(((PsiExpression) element)) && !callsNotSharedMethods(element)) {
 
             if(element instanceof PsiLambdaExpression) {
                 expressions.add(((PsiLambdaExpression) element));
@@ -43,7 +39,7 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
         element.acceptChildren(this);
     }
 
-    boolean hasReferencedVariables(PsiExpression expr) {
+    private boolean hasReferencedVariables(PsiExpression expr) {
 
         final ControlFlow controlFlow;
         try {
@@ -61,5 +57,18 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
                 .toList();
 
         return ! outerVariables.isEmpty();
+    }
+
+    //todo - may be too strict
+    private boolean callsNotSharedMethods(PsiElement element) {
+
+        Collection<PsiMethodCallExpression> calls = PsiTreeUtil.findChildrenOfType(element, PsiMethodCallExpression.class);
+        for (PsiMethodCallExpression expr : calls) {
+            if (expr.getMethodExpression().getQualifierExpression() == null) {
+                return true;
+            }
+        }
+        //todo if method is local and static, it can be extracted
+        return false;
     }
 }

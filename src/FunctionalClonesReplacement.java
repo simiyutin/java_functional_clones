@@ -11,6 +11,7 @@ import com.intellij.psi.*;
 import com.intellij.refactoring.introduceParameter.IntroduceParameterProcessor;
 import com.intellij.refactoring.introduceParameter.Util;
 import com.intellij.refactoring.rename.RenameProcessor;
+import com.intellij.refactoring.util.CommonRefactoringUtil;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.duplicates.Match;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
@@ -54,7 +55,7 @@ public class FunctionalClonesReplacement extends AnAction {
     private void doRefactor(PsiFile psiFile) {
         file = psiFile;
         Set<PsiMethod> affectedMethods = migrateToStreams();
-//        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
+        Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
 //        removeDuplicatedFunctions(refactoredMethods);
     }
 
@@ -112,7 +113,9 @@ public class FunctionalClonesReplacement extends AnAction {
             if (method != null) {
                 affectedMethods.add(method);
                 String name = MyUtil.getNameForParameter(expr, project);
-                performExtraction(name, expr, project, false);
+                if(name != null) {
+                    performExtraction(name, expr, project, false);
+                }
             }
 
         });
@@ -181,32 +184,34 @@ public class FunctionalClonesReplacement extends AnAction {
 
         TIntArrayList parametersToRemove = new TIntArrayList();
         PsiMethod method = getContainingMethod(expr);
-        PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(expr);
-        if (method != null) {
-            IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
-                    project,
-                    method, // равны со следующим. Надо понять, как его находить
-                    method, //
-                    expr, // вроде как просто мой экспрешн, равен следующему
-                    expr, //
-                    null, // null
-                    false,
-                    parameterName, // имя параметра, запихиваемого в функцию
-                    true, //false
-                    1, // 1
-                    false, // false
-                    false, // false
-                    forcedType, // а вот это важная фигня
-                    parametersToRemove //пустой, видимо можно передать просто new ...
-            ) {
-                @Override
-                protected boolean isReplaceDuplicates() {
-                    return replaceDuplicates;
-                }
-            };
+        if (method == null) return false;
+        if (!CommonRefactoringUtil.checkReadOnlyStatus(project, method)) return false;
 
-            processor.run();
-        }
+        PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(expr);
+
+        IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
+                project,
+                method, // равны со следующим. Надо понять, как его находить
+                method, //
+                expr, // вроде как просто мой экспрешн, равен следующему
+                expr, //
+                null, // null
+                false,
+                parameterName, // имя параметра, запихиваемого в функцию
+                true, //false
+                1, // 1
+                false, // false
+                false, // false
+                forcedType, // а вот это важная фигня
+                parametersToRemove //пустой, видимо можно передать просто new ...
+        ) {
+            @Override
+            protected boolean isReplaceDuplicates() {
+                return replaceDuplicates;
+            }
+        };
+
+        processor.run();
 
         return true;
     }

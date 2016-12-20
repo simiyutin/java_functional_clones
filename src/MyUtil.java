@@ -64,6 +64,8 @@ public class MyUtil {
 
         String[] names = createNameSuggestionGenerator(expr, null, project, null).getSuggestedNameInfo(expr.getType()).names;
 
+        if (names.length == 0) return null;
+
         return names[0];
     }
 
