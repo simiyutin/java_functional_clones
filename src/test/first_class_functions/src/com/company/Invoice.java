@@ -5,6 +5,6 @@ package com.company;
  */
 public class Invoice {
     Customer getCustomer(){
-        return new Customer();
+        return Customer.ORACLE;
     }
 }
