@@ -4,7 +4,6 @@ import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.streamMigration.StreamApiMigrationInspection;
 import com.intellij.openapi.actionSystem.*;
 import com.intellij.openapi.command.WriteCommandAction;
-import com.intellij.openapi.editor.Editor;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
 import com.intellij.openapi.vfs.VirtualFile;
@@ -15,6 +14,7 @@ import com.intellij.refactoring.rename.RenameProcessor;
 import com.intellij.refactoring.util.RefactoringUtil;
 import com.intellij.refactoring.util.duplicates.Match;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
+import com.intellij.util.IncorrectOperationException;
 import gnu.trove.TIntArrayList;
 import org.jetbrains.annotations.NonNls;
 
@@ -25,8 +25,9 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
     private PsiFile file;
+    PsiFileFactory fileFactory;
 
-    public void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
+    private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
         if ("java".equals(vfile.getExtension())) {
             consumer.accept(PsiManager.getInstance(project).findFile(vfile));
         }
@@ -39,12 +40,18 @@ public class FunctionalClonesReplacement extends AnAction {
     public void actionPerformed(AnActionEvent event) {
 
         project = event.getData(PlatformDataKeys.PROJECT);
+        fileFactory = PsiFileFactory.getInstance(project);
 
         acceptAllPsiFiles(project.getBaseDir(), this::doRefactor);
 
+//        PsiFile origFile = event.getData(DataKeys.PSI_FILE);
+//        PsiFile clonedFile = fileFactory.createFileFromText(origFile.getText(),origFile);
+//        doRefactor(clonedFile);
+
+
     }
 
-    void doRefactor(PsiFile psiFile) {
+    private void doRefactor(PsiFile psiFile) {
         file = psiFile;
         Set<PsiMethod> affectedMethods = migrateToStreams();
         Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
@@ -58,7 +65,7 @@ public class FunctionalClonesReplacement extends AnAction {
         inspection.SUGGEST_FOREACH = true;
         PsiElementVisitor elementVisitor = inspection.buildVisitor(holder, true);
 
-        CollectAllElementsVisitor collector = new CollectAllElementsVisitor();
+        CollectAllElementsForRefactoringVisitor collector = new CollectAllElementsForRefactoringVisitor();
         file.accept(collector);
         List<PsiElement> elements = collector.getAllElements();
         Set<PsiMethod> affectedMethods = new HashSet<>();
@@ -71,10 +78,15 @@ public class FunctionalClonesReplacement extends AnAction {
             for (ProblemDescriptor descriptor : holder.getResults()) {
                 PsiElement element = descriptor.getPsiElement();
                 if (element != null) {
-                    PsiMethod method = Util.getContainingMethod(descriptor.getPsiElement());
-                    affectedMethods.add(method);
-                    QuickFix[] fixes = descriptor.getFixes();
-                    fixes[0].applyFix(project, descriptor);
+                    try {
+                        PsiMethod method = Util.getContainingMethod(descriptor.getPsiElement());
+                        affectedMethods.add(method);
+                        QuickFix[] fixes = descriptor.getFixes();
+                        fixes[0].applyFix(project, descriptor);
+
+                    } catch (IncorrectOperationException ex) {
+                        ex.printStackTrace();
+                    }
                 }
             }
         });
@@ -104,30 +116,33 @@ public class FunctionalClonesReplacement extends AnAction {
     private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor) {
 
 
-        List<PsiMethod> alreadyReplacedMethods = new ArrayList<>();
+        List<PsiMethod> deletedMethods = new ArrayList<>();
         for (PsiMethod psiMethod : methodsToRefactor) {
-            if (!alreadyReplacedMethods.contains(psiMethod)) {
+            if (!deletedMethods.contains(psiMethod)) {
                 List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
                 if (!matches.isEmpty()) {
 
+                    // first step - delete methods which do the same
                     for (Match match : matches) {
                         if (MyUtil.isMatchAloneInMethod(match)) {
                             PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
+                            // if found method, which does the same stuff as other method, rename it to other and delete definition
                             final RenameProcessor renameProcessor = new MyRenameProcessor(project, matchedMethod, psiMethod.getName(), false, false);
                             renameProcessor.run();
 
                             WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
-                            alreadyReplacedMethods.add(matchedMethod);
+                            deletedMethods.add(matchedMethod);
                         }
                     }
+
 
 
                     String newName = Messages.showInputDialog(project, "Please choose more broad function name for function" + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
                     final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
                     renameProcessor.run();
 
-
-                    if (alreadyReplacedMethods.size() < methodsToRefactor.size()) {
+                    // second step - replace other occurrences
+                    if (deletedMethods.size() < methodsToRefactor.size()) {
                         MethodDuplicatesHandler.invokeOnScope(project, Collections.singleton(psiMethod), new AnalysisScope(file), true);
                     }
                 }
