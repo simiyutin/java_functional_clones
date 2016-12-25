@@ -29,7 +29,9 @@ public class FunctionalClonesReplacement extends AnAction {
 
     // refactoring of this file leads to fail of FilterSetTest. Failure is bound to extraction of the parameter in
     // FilterSet.addConfiguredFilterSet
+    // Possibly, the problem is with dynamic methods invocations via reflection api
     private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
+    public static boolean NAMES_SALTING = false;
 
 
 
@@ -112,10 +114,10 @@ public class FunctionalClonesReplacement extends AnAction {
                 affectedMethods.add(method);
                 String name = MyUtil.getNameForParameter(expr, project);
                 if(name != null) {
-                    if (expr instanceof PsiLambdaExpression) {
+                    if (expr instanceof PsiLambdaExpression && NAMES_SALTING) {
                         MyUtil.renameLocalVariables(((PsiLambdaExpression) expr), project);
                     }
-                    performExtraction(name, expr, project, false);
+                    performExtraction(name, expr);
                 }
             }
 
@@ -133,7 +135,7 @@ public class FunctionalClonesReplacement extends AnAction {
                 List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
                 if (!matches.isEmpty()) {
 
-                    deletedMethods.addAll(deleteFullClones(matches, psiMethod));
+                    deletedMethods.addAll(deleteFullDuplicates(matches, psiMethod));
 
                     String newName = Messages.showInputDialog(project, "Please choose more broad function name for function " + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
                     final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
@@ -147,15 +149,24 @@ public class FunctionalClonesReplacement extends AnAction {
         }
     }
 
-    public List<PsiMethod> deleteFullClones(List<Match> matches, PsiMethod method) {
+    private List<PsiMethod> deleteFullDuplicates(List<Match> matches, PsiMethod method) {
 
         List<PsiMethod> deletedMethods = new ArrayList<>();
 
         for (Match match : matches) {
 
+            /*
+             * method is subset of matchedMethod
+             * if matchedMethod is subset of method, then they are equal
+             *
+             * this hack is needed because by default matches exclude return values,
+             * but we need to handle them to be able to delete full duplicates
+             */
             PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
             final DuplicatesFinder duplicatesFinder = MethodDuplicatesHandler.createDuplicatesFinder(matchedMethod);
             List<Match> reverse = duplicatesFinder.findDuplicates(method);
+
+
             if (!reverse.isEmpty()) {
                 final RenameProcessor renameProcessor = new MyRenameProcessor(project, matchedMethod, method.getName(), false, false);
                 renameProcessor.run();
@@ -163,6 +174,7 @@ public class FunctionalClonesReplacement extends AnAction {
                 WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
                 deletedMethods.add(matchedMethod);
             }
+            
         }
 
         return deletedMethods;
@@ -180,16 +192,14 @@ public class FunctionalClonesReplacement extends AnAction {
         return visitor.getExpressions();
     }
 
-    private boolean performExtraction(@NonNls String parameterName,
-                                      PsiExpression expr,
-                                      Project project,
-                                      final boolean replaceDuplicates) {
+    private void performExtraction(@NonNls String parameterName,
+                                      PsiExpression expr) {
 
 
         TIntArrayList parametersToRemove = new TIntArrayList();
         PsiMethod method = MyUtil.getContainingMethod(expr);
-        if (method == null) return false;
-        if (!CommonRefactoringUtil.checkReadOnlyStatus(project, method)) return false;
+        if (method == null) return;
+        if (!CommonRefactoringUtil.checkReadOnlyStatus(project, method)) return;
 
         PsiType forcedType = RefactoringUtil.getTypeByExpressionWithExpectedType(expr);
 
@@ -211,13 +221,12 @@ public class FunctionalClonesReplacement extends AnAction {
         ) {
             @Override
             protected boolean isReplaceDuplicates() {
-                return replaceDuplicates;
+                return false;
             }
         };
 
         processor.run();
 
-        return true;
     }
 
 }
