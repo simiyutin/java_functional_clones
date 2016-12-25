@@ -26,7 +26,8 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
     private PsiFile file;
-    // todo костыль раз
+    // refactoring of this file leads to fail of FilterSetTest. Failure is bound to extraction of the parameter in
+    // FilterSet.addConfiguredFilterSet
     private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
 
     private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
@@ -81,10 +82,9 @@ public class FunctionalClonesReplacement extends AnAction {
 
                         QuickFix fix = descriptor.getFixes()[0];
 
-                        // todo костыль два
-                        if ("Replace with findFirst()".equals(fix.getName())) {
-                            continue;
-                        }
+                        // непонятное поведение на сложных случаях
+                        if ("Replace with findFirst()".equals(fix.getName())) continue;
+
                         affectedMethods.add(method);
                         fix.applyFix(project, descriptor);
 
@@ -189,19 +189,19 @@ public class FunctionalClonesReplacement extends AnAction {
 
         IntroduceParameterProcessor processor = new IntroduceParameterProcessor(
                 project,
-                method, // равны со следующим. Надо понять, как его находить
-                method, //
-                expr, // вроде как просто мой экспрешн, равен следующему
-                expr, //
-                null, // null
+                method,
+                method,
+                expr,
+                expr,
+                null,
                 false,
-                parameterName, // имя параметра, запихиваемого в функцию
-                true, //false
-                1, // 1
-                false, // false
-                false, // false
-                forcedType, // а вот это важная фигня
-                parametersToRemove //пустой, видимо можно передать просто new ...
+                parameterName,
+                true,
+                1,
+                false,
+                false,
+                forcedType,
+                parametersToRemove
         ) {
             @Override
             protected boolean isReplaceDuplicates() {
