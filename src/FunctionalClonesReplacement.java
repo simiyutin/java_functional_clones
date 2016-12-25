@@ -1,8 +1,13 @@
 import com.intellij.analysis.AnalysisScope;
-import com.intellij.codeInspection.*;
+import com.intellij.codeInspection.InspectionManager;
+import com.intellij.codeInspection.ProblemDescriptor;
+import com.intellij.codeInspection.ProblemsHolder;
+import com.intellij.codeInspection.QuickFix;
 import com.intellij.codeInspection.ex.InspectionManagerEx;
 import com.intellij.codeInspection.streamMigration.StreamApiMigrationInspection;
-import com.intellij.openapi.actionSystem.*;
+import com.intellij.openapi.actionSystem.AnAction;
+import com.intellij.openapi.actionSystem.AnActionEvent;
+import com.intellij.openapi.actionSystem.PlatformDataKeys;
 import com.intellij.openapi.command.WriteCommandAction;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.Messages;
@@ -190,13 +195,11 @@ public class FunctionalClonesReplacement extends AnAction {
             methods.stream().filter(Objects::nonNull).forEach(method -> method.accept(visitor));
         }
 
-
         return visitor.getExpressions();
     }
 
     private void performExtraction(@NonNls String parameterName,
                                       PsiExpression expr) {
-
 
         TIntArrayList parametersToRemove = new TIntArrayList();
         PsiMethod method = MyUtil.getContainingMethod(expr);

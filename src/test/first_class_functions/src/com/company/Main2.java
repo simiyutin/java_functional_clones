@@ -2,9 +2,6 @@ package com.company;
 
 import java.util.*;
 
-/**
- * Created by boris on 23.11.16.
- */
 public class Main2 {
 
 
@@ -12,15 +9,15 @@ public class Main2 {
         List<Set<String>> words = new ArrayList<>();
         words.add(new HashSet<>(Arrays.asList("helloworld", "endswithhello", "bestplaceforhelloismiddle")));
 
-        int starts = startsWithHello(words);
-        int ends = endsWithHello(words);
-        int contains = containsHello(words);
+        int starts = foo(words);
+        int ends = bar(words);
+        int contains = baz(words);
     }
 
-    public static int startsWithHello(List<Set<String>> nested) {
+    public static int foo(List<Set<String>> nested) {
         int count = 0;
         for (Set<String> element : nested) {
-            if (element != null) {
+            if (! element.isEmpty()) {
                 for (String str : element) {
                     if (str.startsWith("Hello")) {
                         count++;
@@ -32,7 +29,7 @@ public class Main2 {
         return count;
     }
 
-    public static int endsWithHello(List<Set<String>> nested) {
+    public static int bar(List<Set<String>> nested) {
         int count = 0;
         for (Set<String> element : nested) {
             if (element != null) {
@@ -47,10 +44,10 @@ public class Main2 {
         return count;
     }
 
-    public static int containsHello(List<Set<String>> nested) {
+    public static int baz(List<Set<String>> nested) {
         int count = 0;
         for (Set<String> element : nested) {
-            if (element != null) {
+            if (element.size() < 10) {
                 for (String str : element) {
                     if (str.contains("Hello")) {
                         count++;

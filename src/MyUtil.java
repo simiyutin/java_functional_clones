@@ -10,16 +10,11 @@ import com.intellij.psi.search.LocalSearchScope;
 import com.intellij.psi.util.PsiTreeUtil;
 import com.intellij.refactoring.introduceParameter.AbstractJavaInplaceIntroducer;
 import com.intellij.refactoring.introduceParameter.Util;
-import com.intellij.refactoring.rename.RenameProcessor;
 import com.intellij.refactoring.ui.NameSuggestionsGenerator;
 import com.intellij.refactoring.util.RefactoringUtil;
-import com.intellij.refactoring.util.duplicates.DuplicatesFinder;
-import com.intellij.refactoring.util.duplicates.Match;
-import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
 import com.intellij.util.ArrayUtil;
 import one.util.streamex.StreamEx;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
