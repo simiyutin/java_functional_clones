@@ -26,8 +26,8 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
     private PsiFile file;
+    // todo костыль раз
     private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
-    //private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("VectorSet", "FilterSet", "AntAnalyzer", "BaseResourceCollectionContainer"));
 
     private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
         if ("java".equals(vfile.getExtension()) && ! declinedFiles.contains(vfile.getNameWithoutExtension())) {
@@ -81,6 +81,7 @@ public class FunctionalClonesReplacement extends AnAction {
 
                         QuickFix fix = descriptor.getFixes()[0];
 
+                        // todo костыль два
                         if ("Replace with findFirst()".equals(fix.getName())) {
                             continue;
                         }
