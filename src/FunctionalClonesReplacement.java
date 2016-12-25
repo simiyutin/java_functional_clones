@@ -25,10 +25,12 @@ import java.util.function.Consumer;
 public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
-    private PsiFile file;
+
     // refactoring of this file leads to fail of FilterSetTest. Failure is bound to extraction of the parameter in
     // FilterSet.addConfiguredFilterSet
     private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
+
+
 
     private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
         if ("java".equals(vfile.getExtension()) && ! declinedFiles.contains(vfile.getNameWithoutExtension())) {
@@ -49,13 +51,12 @@ public class FunctionalClonesReplacement extends AnAction {
     }
 
     private void doRefactor(PsiFile psiFile) {
-        file = psiFile;
-        Set<PsiMethod> affectedMethods = migrateToStreams();
+        Set<PsiMethod> affectedMethods = migrateToStreams(psiFile);
         Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
-        removeDuplicatedFunctions(refactoredMethods);
+        removeDuplicatedFunctions(refactoredMethods, psiFile);
     }
 
-    private Set<PsiMethod> migrateToStreams() {
+    private Set<PsiMethod> migrateToStreams(PsiFile file) {
 
         InspectionManager manager = new InspectionManagerEx(project);
         ProblemsHolder holder = new ProblemsHolder(manager, file, true);
@@ -82,7 +83,7 @@ public class FunctionalClonesReplacement extends AnAction {
 
                         QuickFix fix = descriptor.getFixes()[0];
 
-                        // непонятное поведение на сложных случаях
+                        // troubles with this refactoring in some cases
                         if ("Replace with findFirst()".equals(fix.getName())) continue;
 
                         affectedMethods.add(method);
@@ -100,6 +101,7 @@ public class FunctionalClonesReplacement extends AnAction {
     }
 
     private Set<PsiMethod> extractFunctionalParameters(Set<PsiMethod> prevMethods) {
+
         List<PsiExpression> expressions = getExpressionsToExtractAsParameters(prevMethods);
         Set<PsiMethod> affectedMethods = new HashSet<>();
 
@@ -119,12 +121,10 @@ public class FunctionalClonesReplacement extends AnAction {
         });
 
         return affectedMethods;
-
     }
 
 
-    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor) {
-
+    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor, PsiFile file) {
 
         List<PsiMethod> deletedMethods = new ArrayList<>();
         for (PsiMethod psiMethod : methodsToRefactor) {
@@ -132,7 +132,7 @@ public class FunctionalClonesReplacement extends AnAction {
                 List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
                 if (!matches.isEmpty()) {
 
-                    // first step - delete methods which do the same
+                    // first step - delete clone methods
                     for (Match match : matches) {
                         if (MyUtil.isMatchAloneInMethod(match)) {
                             PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
@@ -146,8 +146,7 @@ public class FunctionalClonesReplacement extends AnAction {
                     }
 
 
-
-                    String newName = Messages.showInputDialog(project, "Please choose more broad function name for function" + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
+                    String newName = Messages.showInputDialog(project, "Please choose more broad function name for function " + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
                     final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
                     renameProcessor.run();
 
@@ -181,7 +180,7 @@ public class FunctionalClonesReplacement extends AnAction {
 
 
         TIntArrayList parametersToRemove = new TIntArrayList();
-        PsiMethod method = getContainingMethod(expr);
+        PsiMethod method = MyUtil.getContainingMethod(expr);
         if (method == null) return false;
         if (!CommonRefactoringUtil.checkReadOnlyStatus(project, method)) return false;
 
@@ -212,17 +211,6 @@ public class FunctionalClonesReplacement extends AnAction {
         processor.run();
 
         return true;
-    }
-
-    private PsiMethod getContainingMethod(PsiExpression expr) {
-
-        PsiMethod method = Util.getContainingMethod(expr);
-        if (method == null) return null;
-
-        final List<PsiMethod> methods = com.intellij.refactoring.introduceParameter.IntroduceParameterHandler.getEnclosingMethods(method);
-        method = methods.get(0);
-
-        return method;
     }
 
 }

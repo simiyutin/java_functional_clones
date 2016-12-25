@@ -9,9 +9,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * Created by boris on 22.11.16.
- */
 public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
 
     private ArrayList<PsiExpression> expressions;
@@ -29,18 +26,13 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
     @Override
     public void visitElement(PsiElement element) {
 
-        if (implementsInterfaceContracts(element)) return;
+        if (isInsideSuperMethod(element)) return;
 
-        if (element instanceof PsiExpression &&
+        if ((element instanceof PsiLambdaExpression || element instanceof PsiMethodReferenceExpression) &&
                 !hasReferencedVariables(((PsiExpression) element)) &&
                 !callsSharedMethods(element)) {
 
-            if(element instanceof PsiLambdaExpression) {
-                expressions.add(((PsiLambdaExpression) element));
-            }
-            if(element instanceof PsiMethodReferenceExpression) {
-                expressions.add(((PsiMethodReferenceExpression) element));
-            }
+            expressions.add(((PsiExpression) element));
         }
 
         element.acceptChildren(this);
@@ -72,7 +64,8 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
         Collection<PsiMethodCallExpression> calls = PsiTreeUtil.findChildrenOfType(element, PsiMethodCallExpression.class);
         for (PsiMethodCallExpression expr : calls) {
             if (expr.getMethodExpression().getQualifierExpression() == null) {
-                System.out.println("Expression rejected to extract: \n" + element.getText() + "\n ________________________________________");
+                System.out.println("Expression rejected to extract because it calls shared method" +
+                        ": \n" + element.getText() + "\n ________________________________________");
                 return true;
             }
         }
@@ -80,7 +73,7 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
         return false;
     }
 
-    private boolean implementsInterfaceContracts(PsiElement element) {
+    private boolean isInsideSuperMethod(PsiElement element) {
 
         PsiMethod method = Util.getContainingMethod(element);
         if (method != null) {
@@ -90,4 +83,5 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
 
         return false;
     }
+
 }
