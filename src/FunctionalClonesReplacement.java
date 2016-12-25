@@ -108,6 +108,9 @@ public class FunctionalClonesReplacement extends AnAction {
                 affectedMethods.add(method);
                 String name = MyUtil.getNameForParameter(expr, project);
                 if(name != null) {
+                    if (expr instanceof PsiLambdaExpression) {
+                        MyUtil.renameLocalVariables(((PsiLambdaExpression) expr), project);
+                    }
                     performExtraction(name, expr, project, false);
                 }
             }
