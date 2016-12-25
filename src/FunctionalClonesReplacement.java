@@ -18,7 +18,6 @@ import com.intellij.refactoring.introduceParameter.Util;
 import com.intellij.refactoring.rename.RenameProcessor;
 import com.intellij.refactoring.util.CommonRefactoringUtil;
 import com.intellij.refactoring.util.RefactoringUtil;
-import com.intellij.refactoring.util.duplicates.DuplicatesFinder;
 import com.intellij.refactoring.util.duplicates.Match;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
 import com.intellij.util.IncorrectOperationException;
@@ -27,6 +26,7 @@ import org.jetbrains.annotations.NonNls;
 
 import java.util.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class FunctionalClonesReplacement extends AnAction {
 
@@ -38,8 +38,7 @@ public class FunctionalClonesReplacement extends AnAction {
     // Possibly, the problem is with dynamic methods invocations via reflection api
     private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
 
-    private static boolean NAMES_SALTING = false;
-
+    private static boolean NAMES_SALTING = true;
 
 
     private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
@@ -63,7 +62,7 @@ public class FunctionalClonesReplacement extends AnAction {
     private void doRefactor(PsiFile psiFile) {
         Set<PsiMethod> affectedMethods = migrateToStreams(psiFile);
         Set<PsiMethod> refactoredMethods = extractFunctionalParameters(affectedMethods);
-        removeDuplicatedFunctions(refactoredMethods, psiFile);
+        removeDuplicatedFunctions(refactoredMethods);
     }
 
     private Set<PsiMethod> migrateToStreams(PsiFile file) {
@@ -134,58 +133,35 @@ public class FunctionalClonesReplacement extends AnAction {
     }
 
 
-    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor, PsiFile file) {
+    private void removeDuplicatedFunctions(Set<PsiMethod> methodsToRefactor) {
 
-        List<PsiMethod> deletedMethods = new ArrayList<>();
-        for (PsiMethod psiMethod : methodsToRefactor) {
-            if (!deletedMethods.contains(psiMethod)) {
-                List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
-                if (!matches.isEmpty()) {
+        Set<PsiMember> members = methodsToRefactor.stream().map(meth -> (PsiMember) meth).collect(Collectors.toSet());
+        List<PsiMember> deletedMethods = new ArrayList<>();
 
-                    deletedMethods.addAll(collapseFullDuplicates(matches, psiMethod));
+        for (PsiMember member : members) {
+            if(!deletedMethods.contains(member)) {
 
-                    String newName = Messages.showInputDialog(project, "Please choose more broad function name for function " + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
-                    final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
+                // inefficient, see comment below
+                Map<PsiMember, List<Match>> duplicates = MyUtil.invokeOnScope(project, Collections.singleton(member), new AnalysisScope(project));
+                List<Match> matches = duplicates.get(member);
+                if (matches != null && !matches.isEmpty()) {
+
+                    deletedMethods.addAll(MyUtil.collapseFullDuplicates(matches, member, project));
+
+                    String newName = Messages.showInputDialog(project, "Please choose more broad function name for function " + member.getName(), "Rename function " + member.getName(), Messages.getQuestionIcon());
+                    final RenameProcessor renameProcessor = new RenameProcessor(project, member, newName, false, false);
                     renameProcessor.run();
 
-                    MethodDuplicatesHandler.invokeOnScope(project, Collections.singleton(psiMethod), new AnalysisScope(file), true);
+                    // inefficient, because we perform whole project search two times, but it is the simpliest way to use private api
+                    MethodDuplicatesHandler.invokeOnScope(project, Collections.singleton(member), new AnalysisScope(project), true);
                 }
 
             }
 
         }
+
     }
 
-    private List<PsiMethod> collapseFullDuplicates(List<Match> matches, PsiMethod method) {
-
-        List<PsiMethod> deletedMethods = new ArrayList<>();
-
-        for (Match match : matches) {
-
-            /*
-             * method is subset of matchedMethod
-             * if matchedMethod is subset of method, then they are equal
-             *
-             * this hack is needed because by default matches exclude return values,
-             * but we need to handle them to be able to delete full duplicates
-             */
-            PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
-            final DuplicatesFinder duplicatesFinder = MethodDuplicatesHandler.createDuplicatesFinder(matchedMethod);
-            List<Match> reverse = duplicatesFinder.findDuplicates(method);
-
-
-            if (!reverse.isEmpty()) {
-                final RenameProcessor renameProcessor = new MyRenameProcessor(project, matchedMethod, method.getName(), false, false);
-                renameProcessor.run();
-
-                WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
-                deletedMethods.add(matchedMethod);
-            }
-
-        }
-
-        return deletedMethods;
-    }
 
     private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(Set<PsiMethod> methods) {
 
@@ -197,6 +173,8 @@ public class FunctionalClonesReplacement extends AnAction {
 
         return visitor.getExpressions();
     }
+
+
 
     private void performExtraction(@NonNls String parameterName,
                                       PsiExpression expr) {

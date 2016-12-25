@@ -1,6 +1,7 @@
 package com.company;
 
 import java.lang.annotation.Annotation;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -22,6 +23,16 @@ public class Main3 {
         printDatabaseAnnotations();
         doOneBusinessWithEachAnnotations();
         doAnotherBusinessWithAnnotations();
+    }
+
+    public static List<Invoice> findInvoicesFromOracle(List<Invoice> invoices) {
+        List<Invoice> result = new ArrayList<>();
+        for(Invoice invoice: invoices) {
+            if(invoice.getCustomer() == Customer.ORACLE) {
+                result.add(invoice);
+            }
+        }
+        return result;
     }
 
 
