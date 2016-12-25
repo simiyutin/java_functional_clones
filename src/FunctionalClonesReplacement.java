@@ -27,11 +27,13 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
 
+    // workaround for running on Apache Ant:
     // refactoring of this file leads to fail of FilterSetTest. Failure is bound to extraction of the parameter in
     // FilterSet.addConfiguredFilterSet
     // Possibly, the problem is with dynamic methods invocations via reflection api
     private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
-    public static boolean NAMES_SALTING = false;
+
+    private static boolean NAMES_SALTING = false;
 
 
 
@@ -92,7 +94,6 @@ public class FunctionalClonesReplacement extends AnAction {
                         affectedMethods.add(method);
                         fix.applyFix(project, descriptor);
 
-
                     } catch (IncorrectOperationException ex) {
                         ex.printStackTrace();
                     }
@@ -114,8 +115,9 @@ public class FunctionalClonesReplacement extends AnAction {
                 affectedMethods.add(method);
                 String name = MyUtil.getNameForParameter(expr, project);
                 if(name != null) {
-                    if (expr instanceof PsiLambdaExpression && NAMES_SALTING) {
-                        MyUtil.renameLocalVariables(((PsiLambdaExpression) expr), project);
+                    // Avoiding name collisions in outer usages of refactored method
+                    if (NAMES_SALTING && expr instanceof PsiLambdaExpression) {
+                        MyUtil.saltLocalVariables(((PsiLambdaExpression) expr), project);
                     }
                     performExtraction(name, expr);
                 }
@@ -135,7 +137,7 @@ public class FunctionalClonesReplacement extends AnAction {
                 List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
                 if (!matches.isEmpty()) {
 
-                    deletedMethods.addAll(deleteFullDuplicates(matches, psiMethod));
+                    deletedMethods.addAll(collapseFullDuplicates(matches, psiMethod));
 
                     String newName = Messages.showInputDialog(project, "Please choose more broad function name for function " + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
                     final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
@@ -149,7 +151,7 @@ public class FunctionalClonesReplacement extends AnAction {
         }
     }
 
-    private List<PsiMethod> deleteFullDuplicates(List<Match> matches, PsiMethod method) {
+    private List<PsiMethod> collapseFullDuplicates(List<Match> matches, PsiMethod method) {
 
         List<PsiMethod> deletedMethods = new ArrayList<>();
 
@@ -174,7 +176,7 @@ public class FunctionalClonesReplacement extends AnAction {
                 WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
                 deletedMethods.add(matchedMethod);
             }
-            
+
         }
 
         return deletedMethods;

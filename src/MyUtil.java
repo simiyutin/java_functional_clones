@@ -51,7 +51,7 @@ public class MyUtil {
         };
     }
 
-    static void renameLocalVariables(PsiLambdaExpression expr, Project myProject) {
+    static void saltLocalVariables(PsiLambdaExpression expr, Project myProject) {
 
         final ControlFlow controlFlow;
         try {
