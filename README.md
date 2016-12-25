@@ -7,4 +7,9 @@ IntelliJ IDEA has been chosen as development environment and provider of base re
 
 STEPS:
 
-1. At first, we are using builtin IDEA for-loops to stream API refactorings to easily fild places which can be replaced by predicates, e.g. .filter(/*here comes piece of code which surely can be replaced by Predicate variable*/)
+0. For each file:
+1. We find places where builtin functional refactorings can be applied, and apply them.
+2. In obtained refactored methods we choose expressions to extract as first-class functions paramaters, and extract them.
+3. We launch builtin mechanism for finding and removing clones, and remove them. 
+
+Example of obtained result can be seen here: //todo
