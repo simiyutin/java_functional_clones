@@ -13,6 +13,7 @@ import com.intellij.refactoring.introduceParameter.Util;
 import com.intellij.refactoring.rename.RenameProcessor;
 import com.intellij.refactoring.util.CommonRefactoringUtil;
 import com.intellij.refactoring.util.RefactoringUtil;
+import com.intellij.refactoring.util.duplicates.DuplicatesFinder;
 import com.intellij.refactoring.util.duplicates.Match;
 import com.intellij.refactoring.util.duplicates.MethodDuplicatesHandler;
 import com.intellij.util.IncorrectOperationException;
@@ -132,33 +133,39 @@ public class FunctionalClonesReplacement extends AnAction {
                 List<Match> matches = MethodDuplicatesHandler.hasDuplicates(file, psiMethod);
                 if (!matches.isEmpty()) {
 
-                    // first step - delete clone methods
-                    for (Match match : matches) {
-                        if (MyUtil.isMatchAloneInMethod(match)) {
-                            PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
-                            // if found method, which does the same stuff as other method, rename it to other and delete definition
-                            final RenameProcessor renameProcessor = new MyRenameProcessor(project, matchedMethod, psiMethod.getName(), false, false);
-                            renameProcessor.run();
-
-                            WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
-                            deletedMethods.add(matchedMethod);
-                        }
-                    }
-
+                    deletedMethods.addAll(deleteFullClones(matches, psiMethod));
 
                     String newName = Messages.showInputDialog(project, "Please choose more broad function name for function " + psiMethod.getName(), "Rename function " + psiMethod.getName(), Messages.getQuestionIcon());
                     final RenameProcessor renameProcessor = new RenameProcessor(project, psiMethod, newName, false, false);
                     renameProcessor.run();
 
-                    // second step - replace other occurrences
-                    if (deletedMethods.size() < methodsToRefactor.size()) {
-                        MethodDuplicatesHandler.invokeOnScope(project, Collections.singleton(psiMethod), new AnalysisScope(file), true);
-                    }
+                    MethodDuplicatesHandler.invokeOnScope(project, Collections.singleton(psiMethod), new AnalysisScope(file), true);
                 }
 
             }
 
         }
+    }
+
+    public List<PsiMethod> deleteFullClones(List<Match> matches, PsiMethod method) {
+
+        List<PsiMethod> deletedMethods = new ArrayList<>();
+
+        for (Match match : matches) {
+
+            PsiMethod matchedMethod = Util.getContainingMethod(match.getMatchStart());
+            final DuplicatesFinder duplicatesFinder = MethodDuplicatesHandler.createDuplicatesFinder(matchedMethod);
+            List<Match> reverse = duplicatesFinder.findDuplicates(method);
+            if (!reverse.isEmpty()) {
+                final RenameProcessor renameProcessor = new MyRenameProcessor(project, matchedMethod, method.getName(), false, false);
+                renameProcessor.run();
+
+                WriteCommandAction.runWriteCommandAction(project, matchedMethod::delete);
+                deletedMethods.add(matchedMethod);
+            }
+        }
+
+        return deletedMethods;
     }
 
     private ArrayList<PsiExpression> getExpressionsToExtractAsParameters(Set<PsiMethod> methods) {
