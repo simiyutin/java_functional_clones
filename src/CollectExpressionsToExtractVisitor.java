@@ -2,6 +2,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.psi.*;
 import com.intellij.psi.controlFlow.*;
 import com.intellij.psi.util.PsiTreeUtil;
+import com.intellij.refactoring.introduceParameter.Util;
 import one.util.streamex.StreamEx;
 
 import java.util.ArrayList;
@@ -27,7 +28,12 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
 
     @Override
     public void visitElement(PsiElement element) {
-        if (element instanceof PsiExpression && !hasReferencedVariables(((PsiExpression) element)) && !doesNotCallSharedMethods(element)) {
+
+        if (implementsInterfaceContracts(element)) return;
+
+        if (element instanceof PsiExpression &&
+                !hasReferencedVariables(((PsiExpression) element)) &&
+                !callsSharedMethods(element)) {
 
             if(element instanceof PsiLambdaExpression) {
                 expressions.add(((PsiLambdaExpression) element));
@@ -36,7 +42,9 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
                 expressions.add(((PsiMethodReferenceExpression) element));
             }
         }
+
         element.acceptChildren(this);
+
     }
 
     private boolean hasReferencedVariables(PsiExpression expr) {
@@ -59,16 +67,27 @@ public class CollectExpressionsToExtractVisitor extends PsiElementVisitor {
         return ! outerVariables.isEmpty();
     }
 
-    //todo - may be too strict
-    private boolean doesNotCallSharedMethods(PsiElement element) {
+    private boolean callsSharedMethods(PsiElement element) {
 
         Collection<PsiMethodCallExpression> calls = PsiTreeUtil.findChildrenOfType(element, PsiMethodCallExpression.class);
         for (PsiMethodCallExpression expr : calls) {
             if (expr.getMethodExpression().getQualifierExpression() == null) {
+                System.out.println("Expression rejected to extract: \n" + element.getText() + "\n ________________________________________");
                 return true;
             }
         }
-        //todo if method is local and static, it can be extracted
+
+        return false;
+    }
+
+    private boolean implementsInterfaceContracts(PsiElement element) {
+
+        PsiMethod method = Util.getContainingMethod(element);
+        if (method != null) {
+            PsiMethod[] superMethods = method.findSuperMethods();
+            return superMethods.length > 0;
+        }
+
         return false;
     }
 }

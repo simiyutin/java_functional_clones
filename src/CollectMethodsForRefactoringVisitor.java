@@ -9,11 +9,11 @@ import java.util.ArrayList;
 /**
  * Created by boris on 15.11.16.
  */
-public class CollectAllElementsForRefactoringVisitor extends PsiElementVisitor {
+public class CollectMethodsForRefactoringVisitor extends PsiElementVisitor {
 
     private ArrayList<PsiElement> allElements;
 
-    public CollectAllElementsForRefactoringVisitor() {
+    public CollectMethodsForRefactoringVisitor() {
         this.allElements = new ArrayList<>();
     }
 
@@ -31,6 +31,7 @@ public class CollectAllElementsForRefactoringVisitor extends PsiElementVisitor {
             PsiMethod method = ((PsiMethod) element);
             boolean throwsAnything = method.getThrowsList().getReferenceElements().length > 0;
             if (throwsAnything) return false;
+            return true;
         }
 
         if (element instanceof PsiTryStatement) {

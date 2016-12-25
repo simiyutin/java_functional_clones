@@ -26,8 +26,8 @@ public class FunctionalClonesReplacement extends AnAction {
 
     private Project project;
     private PsiFile file;
-    PsiFileFactory fileFactory;
-    static Set<String> declinedFiles = new HashSet<>(Arrays.asList("VectorSet", "AntAnalyzer", "ComponentHelper", "Union", "BaseResourceCollectionContainer"));
+    private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("FilterSet"));
+    //private static Set<String> declinedFiles = new HashSet<>(Arrays.asList("VectorSet", "FilterSet", "AntAnalyzer", "BaseResourceCollectionContainer"));
 
     private void acceptAllPsiFiles(VirtualFile vfile, Consumer<PsiFile> consumer) {
         if ("java".equals(vfile.getExtension()) && ! declinedFiles.contains(vfile.getNameWithoutExtension())) {
@@ -42,7 +42,6 @@ public class FunctionalClonesReplacement extends AnAction {
     public void actionPerformed(AnActionEvent event) {
 
         project = event.getData(PlatformDataKeys.PROJECT);
-        fileFactory = PsiFileFactory.getInstance(project);
 
         acceptAllPsiFiles(project.getBaseDir(), this::doRefactor);
 
@@ -56,13 +55,14 @@ public class FunctionalClonesReplacement extends AnAction {
     }
 
     private Set<PsiMethod> migrateToStreams() {
+
         InspectionManager manager = new InspectionManagerEx(project);
         ProblemsHolder holder = new ProblemsHolder(manager, file, true);
         StreamApiMigrationInspection inspection = new StreamApiMigrationInspection();
         inspection.SUGGEST_FOREACH = true;
         PsiElementVisitor elementVisitor = inspection.buildVisitor(holder, true);
 
-        CollectAllElementsForRefactoringVisitor collector = new CollectAllElementsForRefactoringVisitor();
+        CollectMethodsForRefactoringVisitor collector = new CollectMethodsForRefactoringVisitor();
         file.accept(collector);
         List<PsiElement> elements = collector.getAllElements();
         Set<PsiMethod> affectedMethods = new HashSet<>();
@@ -79,7 +79,6 @@ public class FunctionalClonesReplacement extends AnAction {
 
                         PsiMethod method = Util.getContainingMethod(descriptor.getPsiElement());
 
-
                         QuickFix fix = descriptor.getFixes()[0];
 
                         if ("Replace with findFirst()".equals(fix.getName())) {
@@ -87,7 +86,6 @@ public class FunctionalClonesReplacement extends AnAction {
                         }
                         affectedMethods.add(method);
                         fix.applyFix(project, descriptor);
-
 
 
                     } catch (IncorrectOperationException ex) {
