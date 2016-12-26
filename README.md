@@ -12,4 +12,4 @@ STEPS:
 2. In obtained refactored methods we choose expressions to extract as first-class functions paramaters, and extract them.
 3. We launch builtin mechanism for finding and removing clones, and remove them. 
 
-Example of obtained result can be seen here: //todo
+Example of obtained result can be seen here: https://github.com/simiyutin/java_functional_clones/wiki/Example-of-refactoring
